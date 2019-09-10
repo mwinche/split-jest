@@ -1,68 +1,42 @@
-This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
+This project was made to repoduce an issue I'm seeing with
+using the Split.io JavaScript client inside the Jest testing
+environment.
 
-## Available Scripts
+This repo was made from the latest create-react-app and if you
+check the history you will see I have done nothing other than
+bring in the Split library and set it up to have multiple clients
+(one for each traffic type).
 
-In the project directory, you can run:
+If (after cloning the repo and running `yarn`) you run
+`yarn start` you will see the library running as expected in localhost
+mode in your browser, returning `control` treatments.
 
-### `npm start`
+However, if you run `yarn test` (and then hit `a` to run all tests)
+you will see the error `Shared Client not supported by the storage mechanism. Create isolated instances instead.`
 
-Runs the app in the development mode.<br>
-Open [http://localhost:3000](http://localhost:3000) to view it in the browser.
+This error occurs when the Split storage instance lacks a `shared`
+method
+(https://github.com/splitio/javascript-client/blob/2193c1c717f4c2e1089fddb2dfbe1e264c796c79/src/index.js#L74)
+which it does have in the browser environment but not in node.
 
-The page will reload if you make edits.<br>
-You will also see any lint errors in the console.
+Essentially (as far as I can tell) this error happens because Jest
+doesn't run an actual browser but rather simulates one (via js-dom),
+which Split identifies as node.
 
-### `npm test`
+Given that Jest is a very popular testing tool for React development
+it would seem prudent for the Split library to be flexible in handling
+such a situation and allow browser SDK to be run inside the Jest
+environment.
 
-Launches the test runner in the interactive watch mode.<br>
-See the section about [running tests](https://facebook.github.io/create-react-app/docs/running-tests) for more information.
+However, the issue is further complicated because it could also be very
+desirable to use Jest for testing NodeJS applications (which may or may
+not use React) that leverage Split. In these cases, the current behavior
+is correct.
 
-### `npm run build`
-
-Builds the app for production to the `build` folder.<br>
-It correctly bundles React in production mode and optimizes the build for the best performance.
-
-The build is minified and the filenames include the hashes.<br>
-Your app is ready to be deployed!
-
-See the section about [deployment](https://facebook.github.io/create-react-app/docs/deployment) for more information.
-
-### `npm run eject`
-
-**Note: this is a one-way operation. Once you `eject`, you can’t go back!**
-
-If you aren’t satisfied with the build tool and configuration choices, you can `eject` at any time. This command will remove the single build dependency from your project.
-
-Instead, it will copy all the configuration files and the transitive dependencies (Webpack, Babel, ESLint, etc) right into your project so you have full control over them. All of the commands except `eject` will still work, but they will point to the copied scripts so you can tweak them. At this point you’re on your own.
-
-You don’t have to ever use `eject`. The curated feature set is suitable for small and middle deployments, and you shouldn’t feel obligated to use this feature. However we understand that this tool wouldn’t be useful if you couldn’t customize it when you are ready for it.
-
-## Learn More
-
-You can learn more in the [Create React App documentation](https://facebook.github.io/create-react-app/docs/getting-started).
-
-To learn React, check out the [React documentation](https://reactjs.org/).
-
-### Code Splitting
-
-This section has moved here: https://facebook.github.io/create-react-app/docs/code-splitting
-
-### Analyzing the Bundle Size
-
-This section has moved here: https://facebook.github.io/create-react-app/docs/analyzing-the-bundle-size
-
-### Making a Progressive Web App
-
-This section has moved here: https://facebook.github.io/create-react-app/docs/making-a-progressive-web-app
-
-### Advanced Configuration
-
-This section has moved here: https://facebook.github.io/create-react-app/docs/advanced-configuration
-
-### Deployment
-
-This section has moved here: https://facebook.github.io/create-react-app/docs/deployment
-
-### `npm run build` fails to minify
-
-This section has moved here: https://facebook.github.io/create-react-app/docs/troubleshooting#npm-run-build-fails-to-minify
+It is my belief that the key to getting this right is to key off of
+Jest's `testEnvironment` setting
+(https://jestjs.io/docs/en/configuration#testenvironment-string)
+in order to determine where the Split JavaScript SDK should behave
+like a browser SDK or a node SDK. In the case where it is set to
+`js-dom` it ought to serve the browser SDK, otherwise it should serve the node SDK. That said, in all honesty, I'm not
+exactly sure how this would be done.
